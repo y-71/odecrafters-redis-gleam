@@ -64,11 +64,14 @@ fn get_echo_txt_from(msg: BitArray){
   |> list.drop(3)
   |> list.sized_chunk(into: 2)
   |> list.map(fn(chunk){
-    pair.new(chunk |> list.at(0) |> result.unwrap(""), chunk |> list.at(1)|> result.unwrap(""))
-  })
+    pair.new(
+      chunk |> list.at(0) |> result.unwrap(""), 
+      chunk |> list.at(1)|> result.unwrap("")
+    )})
   |> io.debug()
   |> list.map(fn(window){pair.second(window)})
   |> string.join(with: " ")
+  |> string.trim()
 }
 
 fn send_msg(conn: Connection(a), msg: String){
