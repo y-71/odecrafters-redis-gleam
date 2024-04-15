@@ -3,8 +3,17 @@ import gleam/io
 import gleam/erlang/process
 import gleam/option.{None}
 import gleam/otp/actor
-import glisten.{Packet}
+import glisten.{Packet, type Connection}
 import gleam/bytes_builder
+import gleam/string
+import gleam/list
+import gleam/bit_array
+import gleam/result
+import gleam/pair
+
+pub type SocketReason {
+  Eproto
+}
 
 pub fn main() {
   io.println("Logs from your program will appear here!")
@@ -12,21 +21,65 @@ pub fn main() {
   let assert Ok(_) =
     glisten.handler(fn(_conn) { #(Nil, None) }, fn(msg, state, conn) {
       let assert Packet(msg) = msg
-      let server_action = case msg{
-        <<"*1\r\n$4\r\nping\r\n":utf8>> -> fn(){
-          let assert Ok(_) = glisten.send(conn, bytes_builder.from_string("+PONG\r\n"))
-          Nil
-          }
+      
+      let cmd = get_cmd(msg)
+      
+      
+      let server_action = case cmd {
+        "ping" -> fn(){
+          send_msg(conn, "+PONG\r\n")
+        }
+        "echo" -> fn(){
+          let txt = get_echo_txt_from(msg)
+          io.debug(txt)
+
+          send_msg(conn, "+"<>txt<>"\r\n")
+        }
         _ -> fn(){
-          io.println("🚨 ..we still don't handle this payload")
+          Error("🚨.. unsupported method")
         }
       }
+      let assert Ok(_) = server_action()
 
-      server_action()
-      
       actor.continue(state)
     })
     |> glisten.serve(6379)
   
   process.sleep_forever()
 }
+
+fn get_cmd(msg: BitArray){
+  bit_array.to_string(msg) 
+  |> result.unwrap("")
+  |> string.split(on: "\r\n")
+  |> list.at(2)
+  |> result.unwrap("")
+  |> string.lowercase()
+}
+
+fn get_echo_txt_from(msg: BitArray){
+  bit_array.to_string(msg) 
+  |> result.unwrap("")
+  |> string.split(on: "\r\n")
+  |> list.drop(3)
+  |> list.sized_chunk(into: 2)
+  |> list.map(fn(chunk){
+    pair.new(chunk |> list.at(0) |> result.unwrap(""), chunk |> list.at(1)|> result.unwrap(""))
+  })
+  |> io.debug()
+  |> list.map(fn(window){pair.second(window)})
+  |> string.join(with: " ")
+}
+
+fn send_msg(conn: Connection(a), msg: String){
+  case glisten.send(conn, bytes_builder.from_string(msg)){
+            Ok(_) -> Ok("message sent")
+            Error(_) -> Error("Error: failed sending message")
+          }
+}
+
+// fn to_bulk_string(data: String) -> String{
+//   let length = string.length(data)
+//   "$" <> int.to_string(length) <> "\r\n" <> data <> "\r\n"
+// }
+
