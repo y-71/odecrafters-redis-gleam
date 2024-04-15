@@ -27,14 +27,19 @@ pub fn main() {
       
       let server_action = case cmd {
         "ping" -> fn(){
-          send_msg(conn, "+PONG\r\n")
+          send_msg(conn, "PONG")
         }
         "echo" -> fn(){
           let txt = get_echo_txt_from(msg)
-          io.debug(txt)
-
-          send_msg(conn, "+"<>txt<>"\r\n")
+          send_msg(conn, txt)
         }
+        "set" -> fn(){
+          send_msg(conn, "OK")
+        }
+        "get" -> fn(){
+          send_msg(conn, "bar")
+        }
+        
         _ -> fn(){
           Error("🚨.. unsupported method")
         }
@@ -68,13 +73,17 @@ fn get_echo_txt_from(msg: BitArray){
       chunk |> list.at(0) |> result.unwrap(""), 
       chunk |> list.at(1)|> result.unwrap("")
     )})
-  |> io.debug()
   |> list.map(fn(window){pair.second(window)})
   |> string.join(with: " ")
   |> string.trim()
 }
 
 fn send_msg(conn: Connection(a), msg: String){
+  let rds_msg = "+"<>msg<>"\r\n"
+  send_tcp_msg(conn, rds_msg)
+}
+
+fn send_tcp_msg(conn: Connection(a), msg: String){
   case glisten.send(conn, bytes_builder.from_string(msg)){
             Ok(_) -> Ok("message sent")
             Error(_) -> Error("Error: failed sending message")
