@@ -5,7 +5,6 @@ import gleam/option.{None}
 import gleam/otp/actor
 import glisten.{Packet}
 import gleam/bytes_builder
-import gleam/bit_array
 
 pub fn main() {
   io.println("Logs from your program will appear here!")
